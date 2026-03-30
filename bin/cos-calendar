@@ -1,0 +1,49 @@
+#!/bin/bash
+# CoS Calendar — Fetches today's calendar events via gws
+# Returns structured JSON for the Chief of Staff
+# Timezone: Australia/Brisbane (UTC+10, no DST)
+
+export PATH="$HOME/.npm-global/bin:/usr/local/bin:$PATH"
+
+# Calculate today's boundaries in UTC (Brisbane is UTC+10)
+TODAY_START=$(date -u -d "$(TZ=Australia/Brisbane date +%Y-%m-%d) -10 hours" +%Y-%m-%dT%H:%M:%SZ 2>/dev/null)
+TODAY_END=$(date -u -d "$(TZ=Australia/Brisbane date -d '+1 day' +%Y-%m-%d) -10 hours" +%Y-%m-%dT%H:%M:%SZ 2>/dev/null)
+
+# Fallback if date parsing fails
+if [ -z "$TODAY_START" ] || [ -z "$TODAY_END" ]; then
+  TODAY_START=$(date -u +%Y-%m-%dT00:00:00Z)
+  TODAY_END=$(date -u -d "+1 day" +%Y-%m-%dT00:00:00Z 2>/dev/null)
+fi
+
+RAW=$(gws calendar events list --params "{\"calendarId\": \"primary\", \"timeMin\": \"$TODAY_START\", \"timeMax\": \"$TODAY_END\", \"singleEvents\": true, \"orderBy\": \"startTime\", \"maxResults\": 15}" --format json 2>/dev/null)
+
+if echo "$RAW" | grep -q '"error"'; then
+  AGENDA=$(gws calendar +agenda 2>/dev/null)
+  if [ -n "$AGENDA" ]; then
+    echo "{\"format\": \"table\", \"data\": $(echo "$AGENDA" | python3 -c "import json,sys; print(json.dumps(sys.stdin.read()))")}"
+  else
+    echo '{"error": "Calendar unavailable. Run: ~/.config/gws/auth-cos.sh"}'
+  fi
+  exit 0
+fi
+
+echo "$RAW" | python3 -c "
+import json, sys
+try:
+    data = json.load(sys.stdin)
+    events = []
+    for e in data.get('items', []):
+        start = e.get('start', {}).get('dateTime', e.get('start', {}).get('date', ''))
+        end = e.get('end', {}).get('dateTime', e.get('end', {}).get('date', ''))
+        events.append({
+            'summary': e.get('summary', 'No title'),
+            'start': start,
+            'end': end,
+            'location': e.get('location', ''),
+            'attendees': [a.get('email','') for a in e.get('attendees', [])][:5],
+            'meet_link': e.get('hangoutLink', '')
+        })
+    print(json.dumps({'count': len(events), 'events': events}, indent=2))
+except Exception as e:
+    print(json.dumps({'error': str(e)}))
+"

@@ -1,0 +1,111 @@
+#!/bin/bash
+# CoS Email Digest — Fetches and categorizes unread Gmail via gws
+# Returns structured JSON for the Chief of Staff
+# Uses sender-classifications.json for persistent noise filtering
+
+export PATH="$HOME/.npm-global/bin:/usr/local/bin:$PATH"
+
+MAX=${1:-20}
+CLASSIFICATIONS="$HOME/.claude/skills/chief-of-staff/sender-classifications.json"
+
+# Build noise domain regex from classifications file
+if [ -f "$CLASSIFICATIONS" ]; then
+  NOISE_DOMAINS=$(python3 -c "
+import json
+with open('$CLASSIFICATIONS') as f:
+    c = json.load(f)
+domains = c.get('noise', []) + c.get('newsletters', [])
+print('|'.join(domains))
+" 2>/dev/null)
+else
+  NOISE_DOMAINS=""
+fi
+
+# Get inbox-only unread messages
+RAW=$(gws gmail users messages list --params "{\"userId\": \"me\", \"labelIds\": \"INBOX\", \"q\": \"is:unread\", \"maxResults\": $MAX}" --format json 2>/dev/null)
+
+if echo "$RAW" | grep -q '"error"'; then
+  echo "{\"error\": \"Gmail API error\", \"detail\": $RAW}"
+  exit 1
+fi
+
+# Extract message IDs
+MSG_IDS=$(echo "$RAW" | python3 -c "
+import json, sys
+try:
+    data = json.load(sys.stdin)
+    msgs = data.get('messages', [])
+    for m in msgs:
+        print(m['id'])
+except:
+    pass
+" 2>/dev/null)
+
+if [ -z "$MSG_IDS" ]; then
+  echo '{"count": 0, "emails": []}'
+  exit 0
+fi
+
+# Fetch metadata for each message and build JSON
+python3 -c "
+import json, subprocess, re, sys, os
+
+noise_re = re.compile(r'($NOISE_DOMAINS)', re.IGNORECASE) if '$NOISE_DOMAINS' else None
+classifications_path = '$CLASSIFICATIONS'
+
+# Load label IDs for known categories
+label_map = {}
+if os.path.exists(classifications_path):
+    with open(classifications_path) as f:
+        cl = json.load(f)
+    label_map = cl.get('labels', {})
+
+noise_label = label_map.get('noise', '')
+newsletter_label = label_map.get('newsletters', '')
+skip_labels = {noise_label, newsletter_label} - {''}
+
+msg_ids = '''$MSG_IDS'''.strip().split('\n')
+emails = []
+
+for mid in msg_ids:
+    mid = mid.strip()
+    if not mid:
+        continue
+    try:
+        result = subprocess.run(
+            ['gws', 'gmail', 'users', 'messages', 'get',
+             '--params', json.dumps({'userId': 'me', 'id': mid, 'format': 'metadata'}),
+             '--format', 'json'],
+            capture_output=True, text=True, timeout=15,
+            env={**os.environ, 'PATH': os.path.expanduser('~') + '/.npm-global/bin:/usr/local/bin:' + os.environ.get('PATH', '')}
+        )
+        output = result.stdout
+        if 'Using keyring' in output:
+            output = output[output.index('{'):]
+
+        d = json.loads(output)
+        headers = {h['name']: h['value'] for h in d.get('payload', {}).get('headers', [])}
+        labels = d.get('labelIds', [])
+        from_addr = headers.get('From', 'Unknown')
+
+        # Skip if has noise/newsletter label
+        if skip_labels & set(labels):
+            continue
+
+        # Skip noise domains
+        if noise_re and noise_re.search(from_addr):
+            continue
+
+        emails.append({
+            'id': mid,
+            'from': from_addr,
+            'subject': headers.get('Subject', 'No subject'),
+            'date': headers.get('Date', ''),
+            'snippet': d.get('snippet', '')[:200],
+            'labels': labels
+        })
+    except Exception:
+        continue
+
+print(json.dumps({'count': len(emails), 'emails': emails}, indent=2))
+"

@@ -1,0 +1,39 @@
+{
+  "noise": [
+    "academia-mail.com",
+    "polsia.com",
+    "mail.dorahacks.io",
+    "liamottley.com",
+    "syntax.fm",
+    "engage.canva.com",
+    "docker.com",
+    "cerebras.net",
+    "morphllm.com",
+    "netlify.com"
+  ],
+  "newsletters": [
+    "every.to",
+    "substack.com",
+    "linkingyourthinking.com",
+    "deeplearning.ai",
+    "langchain.dev"
+  ],
+  "team": [
+    "subfrac.com",
+    "activatestudios.com"
+  ],
+  "clients": [
+    "assuredenv.com.au"
+  ],
+  "important": [
+    "subfrac.com",
+    "activatestudios.com"
+  ],
+  "labels": {
+    "noise": "Label_2",
+    "newsletters": "Label_1",
+    "actionable": "Label_3",
+    "processed": "Label_4"
+  },
+  "last_updated": "2026-03-09"
+}

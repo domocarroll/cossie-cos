@@ -1,0 +1,61 @@
+#!/bin/bash
+# CoS Infra — SSH health check for a remote VPS
+# Returns Docker container status, disk usage, memory usage as JSON
+#
+# Configure via environment:
+#   COS_SSH_KEY   — Path to SSH private key (default: ~/.ssh/id_rsa)
+#   COS_SSH_HOST  — SSH host string (default: root@localhost)
+
+SSH_KEY="${COS_SSH_KEY:-$HOME/.ssh/id_rsa}"
+HOST="${COS_SSH_HOST:-root@localhost}"
+
+if [ ! -f "$SSH_KEY" ]; then
+  echo '{"error": "SSH key not found at '"$SSH_KEY"'. Set COS_SSH_KEY."}'
+  exit 1
+fi
+
+ssh -i "$SSH_KEY" -o ConnectTimeout=10 -o StrictHostKeyChecking=accept-new "$HOST" '
+python3 -c "
+import json, subprocess, shutil
+
+# Docker containers
+try:
+    out = subprocess.check_output([\"docker\", \"ps\", \"--format\", \"{{.Names}}|{{.Status}}|{{.Image}}\"], text=True, timeout=10)
+    containers = []
+    for line in out.strip().split(\"\n\"):
+        if not line: continue
+        parts = line.split(\"|\")
+        containers.append({\"name\": parts[0], \"status\": parts[1] if len(parts)>1 else \"unknown\", \"image\": parts[2] if len(parts)>2 else \"\"})
+except Exception as e:
+    containers = [{\"error\": str(e)}]
+
+# Disk
+try:
+    total, used, free = shutil.disk_usage(\"/\")
+    disk = {\"total_gb\": round(total / (1024**3), 1), \"used_gb\": round(used / (1024**3), 1), \"free_gb\": round(free / (1024**3), 1), \"percent\": round(used / total * 100, 1)}
+except Exception as e:
+    disk = {\"error\": str(e)}
+
+# Memory
+try:
+    with open(\"/proc/meminfo\") as f:
+        lines = f.readlines()
+    mem = {}
+    for line in lines:
+        parts = line.split()
+        if parts[0] in (\"MemTotal:\", \"MemAvailable:\", \"MemFree:\"):
+            mem[parts[0].rstrip(\":\")] = int(parts[1])
+    total_mb = mem.get(\"MemTotal\", 0) / 1024
+    avail_mb = mem.get(\"MemAvailable\", 0) / 1024
+    memory = {\"total_mb\": round(total_mb), \"available_mb\": round(avail_mb), \"used_percent\": round((1 - avail_mb / total_mb) * 100, 1) if total_mb else 0}
+except Exception as e:
+    memory = {\"error\": str(e)}
+
+print(json.dumps({\"containers\": containers, \"disk\": disk, \"memory\": memory}, indent=2))
+"
+' 2>/dev/null
+
+if [ $? -ne 0 ]; then
+  echo '{"error": "SSH connection failed to '"$HOST"'"}'
+  exit 1
+fi

@@ -1,0 +1,50 @@
+#!/bin/bash
+# CoS Krang — Wraps a Krang/Huly SDK CLI for project management queries
+# Usage: cos-krang [status|issues|projects|search|create|update]
+#
+# Configure via environment:
+#   COS_KRANG_DIR  — Path to Krang SDK directory (default: ~/projects/huly-sdk-explorer)
+#   COS_KRANG_BIN  — Path to krang.js binary (default: $COS_KRANG_DIR/bin/krang.js)
+
+KRANG_DIR="${COS_KRANG_DIR:-$HOME/projects/huly-sdk-explorer}"
+KRANG_BIN="${COS_KRANG_BIN:-$KRANG_DIR/bin/krang.js}"
+
+if [ ! -f "$KRANG_BIN" ]; then
+  echo '{"error": "Krang CLI not found at '"$KRANG_BIN"'. Set COS_KRANG_DIR or COS_KRANG_BIN."}'
+  exit 1
+fi
+
+case "${1:-status}" in
+  status)
+    echo '{"projects":'
+    node "$KRANG_BIN" projects --json 2>/dev/null
+    echo ',"recent_issues":'
+    node "$KRANG_BIN" issues --json --limit 10 2>/dev/null
+    echo '}'
+    ;;
+  issues)
+    LIMIT=${2:-20}
+    node "$KRANG_BIN" issues --json --limit "$LIMIT" 2>/dev/null
+    ;;
+  projects)
+    node "$KRANG_BIN" projects --json 2>/dev/null
+    ;;
+  search)
+    if [ -z "$2" ]; then
+      echo '{"error": "Usage: cos-krang search \"query\""}'
+      exit 1
+    fi
+    node "$KRANG_BIN" search "$2" --json 2>/dev/null
+    ;;
+  create)
+    shift
+    node "$KRANG_BIN" create "$@" 2>/dev/null
+    ;;
+  update)
+    shift
+    node "$KRANG_BIN" update "$@" 2>/dev/null
+    ;;
+  *)
+    echo '{"error": "Usage: cos-krang [status|issues|projects|search|create|update]"}'
+    ;;
+esac

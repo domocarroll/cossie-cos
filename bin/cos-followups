@@ -1,0 +1,100 @@
+#!/bin/bash
+# CoS Follow-ups — Track commitments and follow-up items
+# Usage: cos-followups [list|add|complete|overdue|remove|due-today]
+
+COS_DIR="$HOME/.cos"
+FOLLOWUPS="$COS_DIR/followups.json"
+
+mkdir -p "$COS_DIR"
+[ ! -f "$FOLLOWUPS" ] && echo '[]' > "$FOLLOWUPS"
+
+case "${1:-list}" in
+  list)
+    python3 -c "
+import json
+with open('$FOLLOWUPS') as f:
+    items = json.load(f)
+active = [i for i in items if i.get('status') == 'active']
+print(json.dumps(active, indent=2))
+"
+    ;;
+  overdue)
+    python3 -c "
+import json, time
+with open('$FOLLOWUPS') as f:
+    items = json.load(f)
+now = time.time()
+overdue = [i for i in items if i.get('status')=='active' and i.get('due_ts', 9e12) < now]
+print(json.dumps(overdue, indent=2))
+"
+    ;;
+  due-today)
+    python3 -c "
+import json, time
+from datetime import datetime, timedelta
+with open('$FOLLOWUPS') as f:
+    items = json.load(f)
+today_start = datetime.now().replace(hour=0, minute=0, second=0).timestamp()
+today_end = today_start + 86400
+due = [i for i in items if i.get('status')=='active' and today_start <= i.get('due_ts', 9e12) < today_end]
+print(json.dumps(due, indent=2))
+"
+    ;;
+  add)
+    python3 -c "
+import json, time, uuid
+from datetime import datetime
+
+data = json.loads('$2')
+data['id'] = str(uuid.uuid4())[:8]
+data['status'] = 'active'
+data['created'] = datetime.now().isoformat()
+if 'due_date' in data:
+    try:
+        dt = datetime.strptime(data['due_date'], '%Y-%m-%d')
+        data['due_ts'] = dt.timestamp()
+    except:
+        data['due_ts'] = None
+
+with open('$FOLLOWUPS') as f:
+    items = json.load(f)
+items.append(data)
+with open('$FOLLOWUPS', 'w') as f:
+    json.dump(items, f, indent=2)
+print(json.dumps(data, indent=2))
+"
+    ;;
+  complete)
+    python3 -c "
+import json
+from datetime import datetime
+with open('$FOLLOWUPS') as f:
+    items = json.load(f)
+found = False
+for i in items:
+    if i.get('id') == '$2':
+        i['status'] = 'completed'
+        i['completed_at'] = datetime.now().isoformat()
+        found = True
+        print(json.dumps({'completed': i}, indent=2))
+with open('$FOLLOWUPS', 'w') as f:
+    json.dump(items, f, indent=2)
+if not found:
+    print(json.dumps({'error': 'ID not found: $2'}))
+"
+    ;;
+  remove)
+    python3 -c "
+import json
+with open('$FOLLOWUPS') as f:
+    items = json.load(f)
+items = [i for i in items if i.get('id') != '$2']
+with open('$FOLLOWUPS', 'w') as f:
+    json.dump(items, f, indent=2)
+print(json.dumps({'removed': '$2'}))
+"
+    ;;
+  *)
+    echo '{"error": "Usage: cos-followups [list|add|complete|overdue|due-today|remove]"}'
+    ;;
+esac
