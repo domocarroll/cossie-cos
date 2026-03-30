@@ -34,13 +34,29 @@ else
 fi
 
 # 4. Initialize state directory
-mkdir -p "$COS_DIR/briefing-history"
+mkdir -p "$COS_DIR/briefing-history" "$COS_DIR/handoffs"
 [ ! -f "$COS_DIR/state.json" ] && echo '{}' > "$COS_DIR/state.json"
 [ ! -f "$COS_DIR/followups.json" ] && echo '[]' > "$COS_DIR/followups.json"
 [ ! -f "$COS_DIR/context.json" ] && echo '{"summaries":[],"decisions":[],"pending":[]}' > "$COS_DIR/context.json"
 echo "  State dir: $COS_DIR/"
 
-# 5. Add ~/bin to PATH (fish)
+# 5. Create profile template (if none exists)
+if [ ! -f "$COS_DIR/profile.json" ]; then
+  cp "$SCRIPT_DIR/templates/profile.example.json" "$COS_DIR/profile.json"
+  echo "  Created:   $COS_DIR/profile.json (EDIT THIS with your details)"
+else
+  echo "  Skipped:   profile.json already exists"
+fi
+
+# 6. Create team directory template (if none exists)
+if [ ! -f "$COS_DIR/team.json" ]; then
+  cp "$SCRIPT_DIR/templates/team.example.json" "$COS_DIR/team.json"
+  echo "  Created:   $COS_DIR/team.json (EDIT THIS with your team)"
+else
+  echo "  Skipped:   team.json already exists"
+fi
+
+# 7. Add ~/bin to PATH (fish)
 if command -v fish &>/dev/null; then
   FISH_CONF_DIR="$HOME/.config/fish/conf.d"
   mkdir -p "$FISH_CONF_DIR"
@@ -50,7 +66,7 @@ if command -v fish &>/dev/null; then
   fi
 fi
 
-# 6. Add ~/bin to PATH (bash/zsh)
+# 8. Add ~/bin to PATH (bash/zsh)
 for rc in "$HOME/.bashrc" "$HOME/.zshrc"; do
   if [ -f "$rc" ] && ! grep -q 'HOME/bin' "$rc"; then
     echo 'export PATH="$HOME/bin:$PATH"' >> "$rc"
@@ -73,6 +89,11 @@ echo ""
 echo "Update from GitHub:"
 echo "  cd ~/cossie-cos && git pull && ./install.sh"
 echo ""
-echo "Usage: /cossie, /cossie sweep, /cossie dispatch, /cossie timeblock"
-echo "       /cossie inbox, /cossie followup, /cossie prep, /cossie draft"
-echo "       /cossie decide, /cossie eod, /cossie krang, /cossie infra"
+echo "IMPORTANT: Edit these files with your details:"
+echo "  ~/.cos/profile.json  — your name, role, projects, preferences"
+echo "  ~/.cos/team.json     — your org's team directory"
+echo ""
+echo "Commands: /cossie, /cossie sweep, /cossie dispatch, /cossie timeblock"
+echo "          /cossie inbox, /cossie followup, /cossie prep, /cossie draft"
+echo "          /cossie decide, /cossie eod, /cossie krang, /cossie infra"
+echo "          /cossie team, /cossie handoff [person]"

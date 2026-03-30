@@ -1,0 +1,26 @@
+{
+  "name": "Your Name",
+  "role": "Your role in the org",
+  "email": "you@example.com",
+  "org": "Subfracture",
+  "timezone": "Australia/Brisbane",
+  "utc_offset": "+10:00",
+  "projects": [
+    "Project names you care about"
+  ],
+  "voice": {
+    "style": "direct, warm, professional",
+    "notes": "How you write emails — short and sharp, or detailed, etc."
+  },
+  "access": {
+    "gmail": true,
+    "calendar": true,
+    "krang": true,
+    "infra": false,
+    "dispatch": false
+  },
+  "focus_areas": [
+    "What topics/domains should Cossie prioritise for you"
+  ],
+  "notes": "Anything else Cossie should know about you"
+}

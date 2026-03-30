@@ -1,0 +1,42 @@
+{
+  "org": "Subfracture",
+  "members": [
+    {
+      "name": "Dom Carroll",
+      "role": "Founder / Technical",
+      "email": "dom@subfrac.com",
+      "access_tier": "orchestrator",
+      "projects": ["TTA Matrix", "Agency HQ", "CAFADRE", "Hyprsphere", "OOGI"],
+      "notes": "Full Claude Code access. Spawns agent teams. Meta-agent creation."
+    },
+    {
+      "name": "Ty Curtis",
+      "role": "Managing Director, Activate Studios",
+      "email": "ty@activatestudios.com",
+      "access_tier": "power_user",
+      "projects": ["Activate Studios", "Unbasic", "Subfracture"],
+      "notes": "Runs Krang. Built original CoS. Prefers sharp, direct communication."
+    },
+    {
+      "name": "Warwick Heathwood",
+      "role": "Strategy",
+      "email": "warren@subfrac.com",
+      "access_tier": "operator",
+      "projects": ["Subfracture"],
+      "notes": "Primary content operator. Non-technical. Uses slash commands and justfile."
+    },
+    {
+      "name": "Danni Bain",
+      "role": "Operations",
+      "email": "danni@subfrac.com",
+      "access_tier": "operator",
+      "projects": ["Subfracture"],
+      "notes": "Operations focus. Non-technical."
+    }
+  ],
+  "access_tiers": {
+    "orchestrator": "Full Claude Code. Agent dispatch. Meta-agent creation. Infra access.",
+    "power_user": "Claude Code or OpenCode. Agent dispatch. No infra access.",
+    "operator": "Slash commands and justfile. No direct agent dispatch. Guided workflows."
+  }
+}
